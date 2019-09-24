@@ -82,6 +82,9 @@ export PATH=$PATH:~/.local/bin:$GOPATH/bin
 export GOTRACEBACK=crash
 ulimit -c unlimited
 
+alias less='less -R'
+alias perms='stat -c "%a %n "'
+alias findall='find .  -name ".*" -o -name "*" -a -type f'
 alias gocover='go test . -coverprofile cover.out && go tool cover -html cover.out && rm cover.out'
 alias calicoctl='kubectl exec -i -n kube-system calicoctl /calicoctl -- '
 alias clearall='clear; echo -e "\033c\e[3J"'
