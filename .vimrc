@@ -17,11 +17,8 @@ nnoremap <CR><CR> :noh<CR><CR>
 filetype plugin indent on
 
 call plug#begin('~/.vim/plugged')
-Plug 'fatih/vim-go'
+Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 call plug#end()
-
-set termguicolors
-colorscheme narwal
 
 " Enable Golang syntax highlighting
 let g:go_highlight_functions = 1
@@ -50,23 +47,7 @@ func! DeleteTrailingWS()
   exe "normal `z"
 endfunc
 
-let vim_projcalico = "$GOPATH/src/github.com/projectcalico"
-let github_projcalico = "github.com/projectcalico"
-
-function SetupGoGuruScopePath(path)
-  execute "au BufRead " . g:vim_projcalico . a:path . "/*.go exe 'silent :GoGuruScope " . g:github_projcalico . a:path . "/..."
-endfunc
-
-" Golang autocommands.
-augroup vimrc_go_aus
-        au BufWritePre *.go :GoImports
-        :call SetupGoGuruScopePath("/node/cmd")
-        :call SetupGoGuruScopePath("/felix/cmd")
-        :call SetupGoGuruScopePath("/cni-plugin/cmd")
-        :call SetupGoGuruScopePath("/typha/cmd")
-        :call SetupGoGuruScopePath("/kube-controllers/cmd")
-        :call SetupGoGuruScopePath("/libcalico-go/lib")
-augroup END
+au BufWritePre *.go :GoImports
 
 " Delete trailing white spaces for any file we write.
 au BufWritePre * :call DeleteTrailingWS()
