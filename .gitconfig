@@ -5,3 +5,5 @@
         editor = vim
 [status]
         short = true
+[merge]
+	tool = meld
