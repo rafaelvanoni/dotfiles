@@ -32,13 +32,37 @@ case "$TERM" in
     xterm-color|*-256color) color_prompt=yes;;
 esac
 
-if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h \[\033[00m\]\[\033[01;34m\]\w\[\033[00m\] \n\$ '
-else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h\w\n\$ '
+# uncomment for a colored prompt, if the terminal has the capability; turned
+# off by default to not distract the user: the focus in a terminal window
+# should be on the output of commands, not on the prompt
+#force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+	# a case would tend to support setf rather than setaf.)
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
 fi
 
+if [ "$color_prompt" = yes ]; then
+	PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h \[\033[00m\]\[\033[01;34m\]\w \033[0;36m\]$(get_git_branch)\[\033[00m\] \n\$ '
+else
+	PS1='${debian_chroot:+($debian_chroot)}\u@\h\w \033[0;36m\]$(get_git_branch)\n\$ '
+fi
 unset color_prompt force_color_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h\w\n\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
 
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
@@ -51,6 +75,14 @@ if [ -x /usr/bin/dircolors ]; then
     alias fgrep='fgrep --color=auto'
     alias egrep='egrep --color=auto'
 fi
+
+# colored GCC warnings and errors
+#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
+
+# some more ls aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
 
 # Alias definitions.
 # You may want to put all your additions into a separate file like
@@ -72,22 +104,19 @@ if ! shopt -oq posix; then
   fi
 fi
 
-export GOPATH=~/Work/go
-
-export PROJCALICO=$GOPATH/src/github.com/projectcalico
-export REMOTE_CALICO=https://github.com/projectcalico
+export GOPATH=~/go
 
 export PATH=$PATH:~/.local/bin:$GOPATH/bin
-
-export GOTRACEBACK=crash
-ulimit -c unlimited
+export CC=/usr/bin/gcc
 
 alias less='less -R'
+alias watch='watch -pn 1'
 alias perms='stat -c "%a %n "'
-alias findall='find .  -name ".*" -o -name "*" -a -type f'
-alias gocover='go test . -coverprofile cover.out && go tool cover -html cover.out && rm cover.out'
-alias calicoctl='kubectl exec -i -n kube-system calicoctl /calicoctl -- '
+alias findall='find . -type f -a -name ".*" -o -type f -a -name "*"'
+alias findc='find . -type f -a -name "*.c" -o -type f -a -name "*.h"'
+alias evalssh='eval "$(ssh-agent -s)"; ssh-add ~/.ssh/github.id_rsa'
 alias clearall='clear; echo -e "\033c\e[3J"'
+alias xinvert='xcalib -invert -alter'
 
 function set-title() {
 	if [ ! -z "$1" ]; then
@@ -112,29 +141,53 @@ function goimport () {
 	done
 }
 
+function clone_one () {
+	if [ -z "$1" ]; then
+		printf ":: ${FUNCNAME[0]}() requires a repository name\n"
+		return
+	fi
+
+	printf ":: cloning github.com:rafaelvanoni/$1.git into $PWD/$1\n"
+	git clone git@github.com:rafaelvanoni/$1.git $1
+	printf "\n"
+}
+
 function xref () {
 	if [ ! -d "$PWD/.git" ]; then
 		echo "no git repository found"
 	fi
 
+	file=/tmp/cscope.list
+
 	rm -f cscope.* tags
-	find . -name '*.go' | egrep -v 'vendor' > /tmp/cscope.list
-	cscope -b -i /tmp/cscope.list
-	ctags -L /tmp/cscope.list
-	rm -f /tmp/cscope.list
+	find . -type f -a -name '*.c' -o -type f -name '*.h' > $file
+
+	cscope -b -i $file
+	ctags -L $file
+	rm -f $file
 }
 
 function gofind () {
 	if [ -z "$1" ]; then
-		echo "nothing to look for"
+		echo ":: nothing to look for"
 		return
 	fi
 
-	find . -name '*.go' -not -path '*vendor*' | xargs grep $1
+	find . -type f -a -name ".*" -o -type f -a -name "*.go" | egrep -v 'vendor|go-pkg-cache|LOG|zz_generated' | xargs grep $1
+}
+
+function gofunc () {
+	gofind $1 | grep func
+}
+
+function get_git_branch() {
+	if [ -e .git/HEAD ]; then
+		x=$(cat .git/HEAD); echo "${x##*/}"
+	fi
 }
 
 function docker-clean () {
-	for i in `docker ps -q -a`; do
+	for i in `docker ps -q -a | sort -R --random-source=/dev/urandom`; do
 		echo "stopping/deleting docker $i"
 		docker kill $i &> /dev/null
 		docker rm $i &> /dev/null
@@ -144,10 +197,14 @@ function docker-clean () {
 #	docker rm -f $(docker ps -a -q) && docker rmi -f $(docker images -q)
 }
 
-function aws-login () {
-	(cd $PRIVATE_REPOS/calico-ready-clusters/kubeadm/aws
-	$(terraform output master_connect_command))
+export GOTRACEBACK=crash
+
+function dump_stack(){
+    local i=0
+    local line_no
+    local function_name
+    local file_name
+    while caller $i; do ((i++)) ;done | while read line_no function_name file_name;do echo -e "\t$file_name:$line_no\t$function_name" ;done >&2
 }
 
-complete -C '/usr/local/bin/aws_completer' aws
-. <(eksctl completion bash)
+ulimit -c unlimited
