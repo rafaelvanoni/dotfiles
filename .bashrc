@@ -79,11 +79,6 @@ fi
 # colored GCC warnings and errors
 #export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
 
-# some more ls aliases
-alias ll='ls -alF'
-alias la='ls -A'
-alias l='ls -CF'
-
 # Alias definitions.
 # You may want to put all your additions into a separate file like
 # ~/.bash_aliases, instead of adding them here directly.
@@ -105,8 +100,10 @@ if ! shopt -oq posix; then
 fi
 
 export GOPATH=~/go
+export GO111MODULE=auto
+export GOTRACEBACK=crash
 
-export PATH=$PATH:~/.local/bin:$GOPATH/bin
+export PATH=$PATH:/usr/local/go/bin:~/.local/bin:$GOPATH/bin
 export CC=/usr/bin/gcc
 
 alias less='less -R'
@@ -117,28 +114,14 @@ alias findc='find . -type f -a -name "*.c" -o -type f -a -name "*.h"'
 alias evalssh='eval "$(ssh-agent -s)"; ssh-add ~/.ssh/github.id_rsa'
 alias clearall='clear; echo -e "\033c\e[3J"'
 alias xinvert='xcalib -invert -alter'
+alias removeDoubleEmptyLines="sed -i 'N;/^\n$/D;P;D;'"
+alias dmesg='dmesg -Hkw'
+alias xmod='xmodmap ~/.Xmodmap'
 
 function set-title() {
 	if [ ! -z "$1" ]; then
 		wmctrl -r :ACTIVE: -N "$1"
 	fi
-}
-
-function goimport () {
-	if [ ! -d "$PWD/.git" ]; then
-		echo "no git repository found"
-		return
-	fi
-	for i in `git status -s -uno | egrep -v 'Makefile|glide' | cut -d' ' -f3`; do
-		csum_pre=$(md5sum $i)
-		goimports -w $i;
-		csum_post=$(md5sum $i)
-		if [ "$csum_pre" != "$csum_post" ]; then
-			echo "..fixed $i"
-		else
-			echo "..no changes to $i"
-		fi
-	done
 }
 
 function clone_one () {
@@ -187,17 +170,16 @@ function get_git_branch() {
 }
 
 function docker-clean () {
-	for i in `docker ps -q -a | sort -R --random-source=/dev/urandom`; do
+	for i in `docker ps -q -a | sort -R --random-source=/dev/random`; do
 		echo "stopping/deleting docker $i"
 		docker kill $i &> /dev/null
 		docker rm $i &> /dev/null
 	done
-
-#	echo "removing all images"
-#	docker rm -f $(docker ps -a -q) && docker rmi -f $(docker images -q)
 }
 
-export GOTRACEBACK=crash
+function docker-wipe () {
+	docker rm -f $(docker ps -a -q) && docker rmi -f $(docker images -q)
+}
 
 function dump_stack(){
     local i=0

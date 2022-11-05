@@ -16,10 +16,6 @@ nnoremap <CR><CR> :noh<CR><CR>
 
 filetype plugin indent on
 
-call plug#begin('~/.vim/plugged')
-Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
-call plug#end()
-
 " Enable Golang syntax highlighting
 let g:go_highlight_functions = 1
 let g:go_highlight_function_calls = 1
@@ -30,7 +26,8 @@ let g:go_highlight_operators = 1
 let g:go_highlight_build_constraints = 1
 let g:go_highlight_operators = 1
 
-let g:go_fmt_command = "goimports -w"
+let g:go_fmt_command = "goimports"
+let g:go_fmt_autosave = 1
 let g:go_addtags_transform = "camelcase"
 
 set timeout timeoutlen=2000 ttimeoutlen=2000
@@ -63,3 +60,5 @@ au FileType go nmap <Leader>c <Plug>(go-callers)
 
 " Show type info for the word under cursor.
 au FileType go nmap <Leader>i <Plug>(go-info)
+
+hi Search term=reverse ctermbg=44 guibg=LightCyan
